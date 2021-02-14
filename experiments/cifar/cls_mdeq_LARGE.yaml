@@ -26,9 +26,9 @@ MODEL:
       BLOCK: BASIC
       HEAD_CHANNELS:
       - 14
-      - 28
-      - 56
-      - 112
+      - 14
+      - 14
+      - 14
       FINAL_CHANSIZE: 1680
       NUM_BLOCKS:
       - 1
@@ -37,9 +37,9 @@ MODEL:
       - 1
       NUM_CHANNELS:
       - 32
-      - 64
-      - 128
-      - 256
+      - 32
+      - 32
+      - 32
       FUSE_METHOD: SUM
 CUDNN:
   BENCHMARK: true

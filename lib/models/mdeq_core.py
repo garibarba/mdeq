@@ -307,7 +307,7 @@ class MDEQModule(nn.Module):
 
         num_branches = self.num_branches
         num_channels = self.num_channels
-        fuse_layers = []
+        fuse_layers = {}
         for i in range(num_branches):
             fuse_layer = []                    # The fuse modules into branch #i
             for j in range(num_branches):
@@ -315,11 +315,10 @@ class MDEQModule(nn.Module):
                     fuse_layer.append(None)    # Identity if the same branch
                 else:
                     module = UpsampleModule if j > i else DownsampleModule
-                    fuse_layer.append(module(num_channels, in_res=j, out_res=i))
-            fuse_layers.append(nn.ModuleList(fuse_layer))
+                    fuse_layers[str(i - j)] = module(num_channels, in_res=j, out_res=i)
 
-        # fuse_layers[i][j] gives the (series of) conv3x3s that convert input from branch j to branch i
-        return nn.ModuleList(fuse_layers)
+        # fuse_layers[str(i - j)] gives the (series of) conv3x3s that convert input from branch j to branch i
+        return nn.ModuleDict(fuse_layers)
 
     def get_num_inchannels(self):
         return self.num_channels
@@ -337,7 +336,7 @@ class MDEQModule(nn.Module):
         # Step 1: Per-resolution residual block
         x_block = []
         for i in range(self.num_branches):
-            x_block.append(self.branches[i](x[i], injection[i]))
+            x_block.append(self.branches[0](x[i], injection[i]))
         
         # Step 2: Multiscale fusion
         x_fuse = []
@@ -346,8 +345,8 @@ class MDEQModule(nn.Module):
             
             # Start fusing all #j -> #i up/down-samplings
             for j in range(self.num_branches):
-                y += x_block[j] if i == j else self.fuse_layers[i][j](x_block[j])
-            x_fuse.append(self.post_fuse_layers[i](y))
+                y += x_block[j] if i == j else self.fuse_layers[str(i - j)](x_block[j])
+            x_fuse.append(self.post_fuse_layers[0](y))
             
         return x_fuse
 
@@ -437,11 +436,12 @@ class MDEQNet(nn.Module):
         x = self.downsample(x)
         dev = x.device
         
-        # Inject only to the highest resolution...
-        x_list = [self.stage0(x) if self.stage0 else x]
-        for i in range(1, num_branches):
-            bsz, _, H, W = x_list[-1].shape
-            x_list.append(torch.zeros(bsz, self.num_channels[i], H//2, W//2).to(dev))   # ... and the rest are all zeros
+        # Inject to all resolutions...
+        assert(len(set(self.num_channels)) == 1)
+        x_scales = [x]
+        for _ in range(1, num_branches):
+            x_scales.append(torch.nn.AvgPool2d(2)(x_scales[-1])) # ...by first downscaling...
+        x_list = [(self.stage0(xs) if self.stage0 else xs) for xs in x_scales] # ...then applying the same transform.
             
         z_list = [torch.zeros_like(elem) for elem in x_list]
         
