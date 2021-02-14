@@ -263,7 +263,7 @@ class MDEQModule(nn.Module):
             for j in range(num_branches):
                 # Step 2: Fuse layer copying
                 if i != j:
-                    self.fuse_layers[i][j]._copy(other.fuse_layers[i][j])     
+                    self.fuse_layers[str(i - j)]._copy(other.fuse_layers[str(i - j)])     
             self.post_fuse_layers[i].conv.weight.data = other.post_fuse_layers[i].conv.weight.data.clone()
             try:
                 self.post_fuse_layers[i].gnorm.weight.data = other.post_fuse_layers[i].gnorm.weight.data.clone()
