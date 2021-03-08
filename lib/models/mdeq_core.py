@@ -433,7 +433,6 @@ class MDEQNet(nn.Module):
         f_thres = kwargs.get('f_thres', self.f_thres)
         b_thres = kwargs.get('b_thres', self.b_thres)
         writer = kwargs.get('writer', None)     # For tensorboard
-        x = self.downsample(x)
         dev = x.device
         
         # Inject to all resolutions...
@@ -441,6 +440,8 @@ class MDEQNet(nn.Module):
         x_scales = [x]
         for _ in range(1, num_branches):
             x_scales.append(torch.nn.AvgPool2d(2)(x_scales[-1])) # ...by first downscaling...
+        for i, xs in enumerate(x_scales):
+            x_scales[i] = self.downsample(xs) # ...then applying downsample...
         x_list = [(self.stage0(xs) if self.stage0 else xs) for xs in x_scales] # ...then applying the same transform.
             
         z_list = [torch.zeros_like(elem) for elem in x_list]
